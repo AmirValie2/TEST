@@ -389,7 +389,7 @@ async def disable_user_by_status(panel_data: PanelType, username: str) -> bool:
 
 async def disable_user_by_group(panel_data: PanelType, username: str, disabled_group_id: int) -> bool:
     """
-    Disable a user by moving them to the disabled group.
+    Disable a user by moving them to the disabled group and setting status to disabled.
     Saves their original groups before changing.
 
     Args:
@@ -414,10 +414,17 @@ async def disable_user_by_group(panel_data: PanelType, username: str, disabled_g
         await groups_storage.save_user_groups(username, current_groups)
         
         # Move user to disabled group only
-        success = await update_user_groups(panel_data, username, [disabled_group_id])
-        if success:
-            logger.info(f"Disabled user by group: {username} (moved to group {disabled_group_id})")
+        group_success = await update_user_groups(panel_data, username, [disabled_group_id])
+        
+        # Also set status to disabled
+        status_success = await disable_user_by_status(panel_data, username)
+        
+        if group_success and status_success:
+            logger.info(f"Disabled user by group: {username} (moved to group {disabled_group_id}, status disabled)")
             return True
+        elif group_success:
+            logger.warning(f"Disabled user by group: {username} (moved to group {disabled_group_id}, but status change failed)")
+            return True  # Still consider it success if group was changed
         return False
     except Exception as error:
         logger.error(f"Error disabling user by group: {error}")
@@ -525,7 +532,7 @@ async def enable_user_by_status(panel_data: PanelType, username: str) -> bool:
 
 async def enable_user_by_group(panel_data: PanelType, username: str) -> bool:
     """
-    Enable a user by restoring their original groups.
+    Enable a user by restoring their original groups and setting status to active.
 
     Args:
         panel_data (PanelType): Panel connection data.
@@ -544,12 +551,21 @@ async def enable_user_by_group(panel_data: PanelType, username: str) -> bool:
             return False
         
         # Restore user's original groups
-        success = await update_user_groups(panel_data, username, original_groups)
-        if success:
+        group_success = await update_user_groups(panel_data, username, original_groups)
+        
+        # Also set status back to active
+        status_success = await enable_user_by_status(panel_data, username)
+        
+        if group_success and status_success:
             # Remove from storage after successful restore
             await groups_storage.remove_user(username)
-            logger.info(f"Enabled user by group: {username} (restored groups {original_groups})")
+            logger.info(f"Enabled user by group: {username} (restored groups {original_groups}, status active)")
             return True
+        elif group_success:
+            # Remove from storage even if status change failed
+            await groups_storage.remove_user(username)
+            logger.warning(f"Enabled user by group: {username} (restored groups {original_groups}, but status change failed)")
+            return True  # Still consider it success if groups were restored
         return False
     except Exception as error:
         logger.error(f"Error enabling user by group: {error}")
@@ -899,7 +915,7 @@ async def cleanup_deleted_users(panel_data: PanelType) -> dict:
         
         # Check disabled users
         dis_obj = DisabledUsers()
-        disabled_list = await dis_obj.get_disabled_users()
+        disabled_list = list(dis_obj.disabled_users.keys())
         for username in disabled_list:
             if username not in panel_users:
                 await dis_obj.remove_user(username)
