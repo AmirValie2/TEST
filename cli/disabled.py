@@ -43,6 +43,7 @@ def load_disabled_users() -> dict:
             return {}
     except Exception as e:
         error(f"Failed to load disabled users: {e}")
+        return {}
 
 
 def save_disabled_users(users: dict):

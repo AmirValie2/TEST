@@ -6,6 +6,7 @@ import typer
 from rich.table import Table
 
 from cli.utils import (
+    console,
     error,
     info,
     load_config,
@@ -223,7 +224,7 @@ def cleanup_deleted_users():
                 users_str += f" (+{len(result['user_groups_backup_removed']) - 5} more)"
             table.add_row("Groups Backup", str(len(result["user_groups_backup_removed"])), users_str)
         
-        print_table(table)
+        console.print(table)
         success(f"Total removed: {total_removed} user entries")
         
     except Exception as e:
