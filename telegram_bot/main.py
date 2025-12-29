@@ -166,6 +166,20 @@ class CallbackData:
     DISABLE_BY_GROUP = "disable_by_group"
     SELECT_DISABLED_GROUP = "select_disabled_group"
     
+    # Punishment system
+    PUNISHMENT_MENU = "punishment_menu"
+    PUNISHMENT_TOGGLE = "punishment_toggle"
+    PUNISHMENT_WINDOW_24 = "punishment_window_24"
+    PUNISHMENT_WINDOW_48 = "punishment_window_48"
+    PUNISHMENT_WINDOW_72 = "punishment_window_72"
+    PUNISHMENT_WINDOW_CUSTOM = "punishment_window_custom"
+    
+    # Group filter
+    GROUP_FILTER_MENU = "group_filter_menu"
+    GROUP_FILTER_TOGGLE = "group_filter_toggle"
+    GROUP_FILTER_MODE_INCLUDE = "group_filter_mode_include"
+    GROUP_FILTER_MODE_EXCLUDE = "group_filter_mode_exclude"
+    
     # Cleanup
     CLEANUP_DELETED_USERS = "cleanup_deleted_users"
     
@@ -261,6 +275,10 @@ def create_settings_menu_keyboard():
         ],
         [
             InlineKeyboardButton("🚫 Disable Method", callback_data=CallbackData.DISABLE_METHOD_MENU),
+        ],
+        [
+            InlineKeyboardButton("⚖️ Punishment", callback_data=CallbackData.PUNISHMENT_MENU),
+            InlineKeyboardButton("🔍 Group Filter", callback_data=CallbackData.GROUP_FILTER_MENU),
         ],
         [InlineKeyboardButton("« Back to Main Menu", callback_data=CallbackData.BACK_MAIN)],
     ]
@@ -371,6 +389,54 @@ def create_single_ip_keyboard():
         [InlineKeyboardButton("« Back to Settings", callback_data=CallbackData.SETTINGS_MENU)],
     ]
     return InlineKeyboardMarkup(keyboard)
+
+
+def create_punishment_menu_keyboard(enabled: bool = True, window_hours: int = 72):
+    """Create punishment system menu keyboard."""
+    toggle_text = "❌ Disable" if enabled else "✅ Enable"
+    status_emoji = "🟢" if enabled else "🔴"
+    
+    keyboard = [
+        [InlineKeyboardButton(f"{status_emoji} Status: {'Enabled' if enabled else 'Disabled'}", callback_data="punishment_info")],
+        [InlineKeyboardButton(toggle_text, callback_data=CallbackData.PUNISHMENT_TOGGLE)],
+        [
+            InlineKeyboardButton("⏱️ Time Window", callback_data="punishment_window_menu"),
+        ],
+        [
+            InlineKeyboardButton("24h", callback_data=CallbackData.PUNISHMENT_WINDOW_24),
+            InlineKeyboardButton("48h", callback_data=CallbackData.PUNISHMENT_WINDOW_48),
+            InlineKeyboardButton("72h", callback_data=CallbackData.PUNISHMENT_WINDOW_72),
+        ],
+        [InlineKeyboardButton("📋 View Punishment Steps", callback_data="punishment_view_steps")],
+        [InlineKeyboardButton("« Back to Settings", callback_data=CallbackData.SETTINGS_MENU)],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def create_group_filter_menu_keyboard(enabled: bool = False, mode: str = "include", group_ids: list = None):
+    """Create group filter menu keyboard."""
+    if group_ids is None:
+        group_ids = []
+    
+    toggle_text = "❌ Disable" if enabled else "✅ Enable"
+    status_emoji = "🟢" if enabled else "🔴"
+    mode_emoji = "📥" if mode == "include" else "📤"
+    
+    keyboard = [
+        [InlineKeyboardButton(f"{status_emoji} Status: {'Enabled' if enabled else 'Disabled'}", callback_data="group_filter_info")],
+        [InlineKeyboardButton(toggle_text, callback_data=CallbackData.GROUP_FILTER_TOGGLE)],
+        [
+            InlineKeyboardButton(f"{mode_emoji} Mode: {mode.title()}", callback_data="group_filter_mode_menu"),
+        ],
+        [
+            InlineKeyboardButton("📥 Include", callback_data=CallbackData.GROUP_FILTER_MODE_INCLUDE),
+            InlineKeyboardButton("📤 Exclude", callback_data=CallbackData.GROUP_FILTER_MODE_EXCLUDE),
+        ],
+        [InlineKeyboardButton(f"📋 Groups: {len(group_ids)} configured", callback_data="group_filter_view_groups")],
+        [InlineKeyboardButton("« Back to Settings", callback_data=CallbackData.SETTINGS_MENU)],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
 
 def create_users_menu_keyboard():
     """Create users menu inline keyboard."""
@@ -2953,6 +3019,286 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
                 reply_markup=create_back_to_main_keyboard(),
                 parse_mode="HTML"
             )
+        return
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PUNISHMENT SYSTEM CALLBACKS
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    # Punishment menu
+    if data == CallbackData.PUNISHMENT_MENU:
+        try:
+            config_data = await read_config()
+            punishment_config = config_data.get("punishment", {})
+            enabled = punishment_config.get("enabled", True)
+            window_hours = punishment_config.get("window_hours", 72)
+            
+            await query.edit_message_text(
+                text=f"⚖️ <b>Punishment System</b>\n\n"
+                     f"Configure automatic punishment escalation for repeat violators.\n\n"
+                     f"<b>Current Window:</b> {window_hours} hours\n"
+                     f"<i>Violations older than this are forgotten.</i>",
+                reply_markup=create_punishment_menu_keyboard(enabled, window_hours),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            await query.edit_message_text(
+                text=f"❌ Error loading punishment config: {e}",
+                reply_markup=create_back_to_settings_keyboard(),
+                parse_mode="HTML"
+            )
+        return
+    
+    # Punishment toggle
+    if data == CallbackData.PUNISHMENT_TOGGLE:
+        try:
+            config_data = await read_config()
+            if "punishment" not in config_data:
+                config_data["punishment"] = {"enabled": True, "window_hours": 72, "steps": []}
+            
+            current_state = config_data["punishment"].get("enabled", True)
+            config_data["punishment"]["enabled"] = not current_state
+            
+            await write_json_file(config_data)
+            
+            enabled = not current_state
+            window_hours = config_data["punishment"].get("window_hours", 72)
+            
+            status = "✅ Enabled" if enabled else "❌ Disabled"
+            await query.edit_message_text(
+                text=f"⚖️ <b>Punishment System</b>\n\n"
+                     f"Status changed to: <b>{status}</b>\n\n"
+                     f"<b>Current Window:</b> {window_hours} hours",
+                reply_markup=create_punishment_menu_keyboard(enabled, window_hours),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            await query.edit_message_text(
+                text=f"❌ Error: {e}",
+                reply_markup=create_back_to_settings_keyboard(),
+                parse_mode="HTML"
+            )
+        return
+    
+    # Punishment window selections
+    if data in [CallbackData.PUNISHMENT_WINDOW_24, CallbackData.PUNISHMENT_WINDOW_48, CallbackData.PUNISHMENT_WINDOW_72]:
+        window_map = {
+            CallbackData.PUNISHMENT_WINDOW_24: 24,
+            CallbackData.PUNISHMENT_WINDOW_48: 48,
+            CallbackData.PUNISHMENT_WINDOW_72: 72,
+        }
+        hours = window_map[data]
+        try:
+            config_data = await read_config()
+            if "punishment" not in config_data:
+                config_data["punishment"] = {"enabled": True, "window_hours": hours, "steps": []}
+            else:
+                config_data["punishment"]["window_hours"] = hours
+            
+            await write_json_file(config_data)
+            
+            enabled = config_data["punishment"].get("enabled", True)
+            
+            await query.edit_message_text(
+                text=f"⚖️ <b>Punishment System</b>\n\n"
+                     f"✅ Time window set to <b>{hours} hours</b>\n\n"
+                     f"Violations older than this will be forgotten.",
+                reply_markup=create_punishment_menu_keyboard(enabled, hours),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            await query.edit_message_text(
+                text=f"❌ Error: {e}",
+                reply_markup=create_back_to_settings_keyboard(),
+                parse_mode="HTML"
+            )
+        return
+    
+    # Punishment view steps
+    if data == "punishment_view_steps":
+        try:
+            from utils.punishment_system import get_punishment_system
+            
+            config_data = await read_config()
+            system = get_punishment_system()
+            system.load_config(config_data)
+            
+            steps_text = []
+            for i, step in enumerate(system.steps, 1):
+                steps_text.append(f"  {i}. {step.get_display_text()}")
+            
+            if not steps_text:
+                steps_text = ["  No steps configured (using defaults)"]
+            
+            await query.edit_message_text(
+                text=f"⚖️ <b>Punishment Steps</b>\n\n"
+                     f"{chr(10).join(steps_text)}\n\n"
+                     f"<i>Use /punishment_set_steps to configure custom steps.</i>",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("« Back to Punishment", callback_data=CallbackData.PUNISHMENT_MENU)],
+                ]),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            await query.edit_message_text(
+                text=f"❌ Error: {e}",
+                reply_markup=create_back_to_settings_keyboard(),
+                parse_mode="HTML"
+            )
+        return
+    
+    if data == "punishment_info":
+        await query.answer("Toggle the system with the button below", show_alert=False)
+        return
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # GROUP FILTER CALLBACKS
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    # Group filter menu
+    if data == CallbackData.GROUP_FILTER_MENU:
+        try:
+            config_data = await read_config()
+            filter_config = config_data.get("group_filter", {})
+            enabled = filter_config.get("enabled", False)
+            mode = filter_config.get("mode", "include")
+            group_ids = filter_config.get("group_ids", [])
+            
+            mode_desc = "Only users in specified groups are monitored" if mode == "include" else "Users in specified groups are whitelisted"
+            
+            await query.edit_message_text(
+                text=f"🔍 <b>Group Filter</b>\n\n"
+                     f"Filter users based on their panel groups.\n\n"
+                     f"<b>Mode:</b> {mode.title()}\n"
+                     f"<i>{mode_desc}</i>",
+                reply_markup=create_group_filter_menu_keyboard(enabled, mode, group_ids),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            await query.edit_message_text(
+                text=f"❌ Error loading group filter config: {e}",
+                reply_markup=create_back_to_settings_keyboard(),
+                parse_mode="HTML"
+            )
+        return
+    
+    # Group filter toggle
+    if data == CallbackData.GROUP_FILTER_TOGGLE:
+        try:
+            config_data = await read_config()
+            if "group_filter" not in config_data:
+                config_data["group_filter"] = {"enabled": True, "mode": "include", "group_ids": []}
+            
+            current_state = config_data["group_filter"].get("enabled", False)
+            config_data["group_filter"]["enabled"] = not current_state
+            
+            await write_json_file(config_data)
+            
+            enabled = not current_state
+            mode = config_data["group_filter"].get("mode", "include")
+            group_ids = config_data["group_filter"].get("group_ids", [])
+            
+            status = "✅ Enabled" if enabled else "❌ Disabled"
+            await query.edit_message_text(
+                text=f"🔍 <b>Group Filter</b>\n\n"
+                     f"Status changed to: <b>{status}</b>",
+                reply_markup=create_group_filter_menu_keyboard(enabled, mode, group_ids),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            await query.edit_message_text(
+                text=f"❌ Error: {e}",
+                reply_markup=create_back_to_settings_keyboard(),
+                parse_mode="HTML"
+            )
+        return
+    
+    # Group filter mode selections
+    if data in [CallbackData.GROUP_FILTER_MODE_INCLUDE, CallbackData.GROUP_FILTER_MODE_EXCLUDE]:
+        mode = "include" if data == CallbackData.GROUP_FILTER_MODE_INCLUDE else "exclude"
+        try:
+            config_data = await read_config()
+            if "group_filter" not in config_data:
+                config_data["group_filter"] = {"enabled": False, "mode": mode, "group_ids": []}
+            else:
+                config_data["group_filter"]["mode"] = mode
+            
+            await write_json_file(config_data)
+            
+            enabled = config_data["group_filter"].get("enabled", False)
+            group_ids = config_data["group_filter"].get("group_ids", [])
+            
+            mode_desc = "Only users in specified groups are monitored" if mode == "include" else "Users in specified groups are whitelisted"
+            
+            await query.edit_message_text(
+                text=f"🔍 <b>Group Filter</b>\n\n"
+                     f"✅ Mode set to: <b>{mode.title()}</b>\n\n"
+                     f"<i>{mode_desc}</i>",
+                reply_markup=create_group_filter_menu_keyboard(enabled, mode, group_ids),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            await query.edit_message_text(
+                text=f"❌ Error: {e}",
+                reply_markup=create_back_to_settings_keyboard(),
+                parse_mode="HTML"
+            )
+        return
+    
+    # Group filter view groups
+    if data == "group_filter_view_groups":
+        try:
+            from utils.user_group_filter import get_all_groups
+            from utils.types import PanelType
+            
+            config_data = await read_config()
+            filter_config = config_data.get("group_filter", {})
+            configured_ids = filter_config.get("group_ids", [])
+            
+            # Get panel data for group lookup
+            panel_config = config_data.get("panel", {})
+            panel_data = PanelType(
+                panel_config.get("username", ""),
+                panel_config.get("password", ""),
+                panel_config.get("domain", "")
+            )
+            
+            # Get all groups
+            groups = await get_all_groups(panel_data)
+            
+            groups_text = []
+            for group in groups:
+                gid = group.get("id", "?")
+                name = group.get("name", "Unknown")
+                is_configured = "✅" if gid in configured_ids else "⬜"
+                groups_text.append(f"  {is_configured} <code>{gid}</code> - {name}")
+            
+            if not groups_text:
+                groups_text = ["  No groups found in panel"]
+            
+            await query.edit_message_text(
+                text=f"🔍 <b>Available Groups</b>\n\n"
+                     f"<b>Configured IDs:</b> <code>{configured_ids}</code>\n\n"
+                     f"<b>Panel Groups:</b>\n"
+                     f"{chr(10).join(groups_text)}\n\n"
+                     f"<i>Use /group_filter_add &lt;id&gt; or /group_filter_remove &lt;id&gt;</i>",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("« Back to Group Filter", callback_data=CallbackData.GROUP_FILTER_MENU)],
+                ]),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            await query.edit_message_text(
+                text=f"❌ Error fetching groups: {e}\n\n<i>Make sure panel is configured.</i>",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("« Back to Group Filter", callback_data=CallbackData.GROUP_FILTER_MENU)],
+                ]),
+                parse_mode="HTML"
+            )
+        return
+    
+    if data == "group_filter_info":
+        await query.answer("Toggle the filter with the button below", show_alert=False)
         return
     
     # Disable method menu
