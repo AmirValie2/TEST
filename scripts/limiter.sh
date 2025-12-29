@@ -99,15 +99,19 @@ start_program() {
     local log_file="limiter_startup.log"
     
     # Try binary first, fall back to Python
+    local mode=""
     if [ -f "$filename" ]; then
+        mode="binary"
         screen -Sdm Limiter bash -c "./$filename 2>&1 | tee $log_file"
         echo "Limiter starting (binary mode)..."
     elif [ -f "limiter.py" ]; then
+        mode="python"
         screen -Sdm Limiter bash -c "python3 limiter.py 2>&1 | tee $log_file"
         echo "Limiter starting (Python mode)..."
     else
         echo "No executable found. Downloading..."
         if download_program; then
+            mode="binary"
             screen -Sdm Limiter bash -c "./$filename 2>&1 | tee $log_file"
             echo "Limiter starting..."
         else
@@ -125,24 +129,62 @@ start_program() {
     
     if is_running; then
         echo "✅ Limiter started successfully!"
-    else
-        echo ""
-        echo "❌ Limiter failed to start!"
-        echo ""
-        if [ -f "$log_file" ] && [ -s "$log_file" ]; then
-            echo "=== Error Log ==="
-            tail -30 "$log_file"
-            echo "================="
-        fi
-        echo ""
-        echo "Common issues:"
-        echo "  - Invalid config.json (check JSON syntax)"
-        echo "  - Wrong panel domain/credentials"
-        echo "  - Invalid Telegram bot token"
-        echo "  - Panel not reachable"
-        echo ""
-        echo "Fix config with: $0 (option 5)"
+        return 0
     fi
+    
+    # Startup failed - check for GLIBC error and try Python fallback
+    if [ "$mode" = "binary" ] && grep -q "GLIBC" "$log_file" 2>/dev/null; then
+        echo ""
+        echo "⚠️  Binary incompatible with your system (GLIBC version mismatch)."
+        
+        if [ -f "limiter.py" ]; then
+            echo "Trying Python mode instead..."
+            echo ""
+            
+            # Check if Python dependencies are installed
+            if ! python3 -c "import httpx" 2>/dev/null; then
+                echo "Installing Python dependencies..."
+                pip3 install -r requirements.txt 2>/dev/null || pip install -r requirements.txt 2>/dev/null
+            fi
+            
+            screen -Sdm Limiter bash -c "python3 limiter.py 2>&1 | tee $log_file"
+            sleep 2
+            
+            if is_running; then
+                echo "✅ Limiter started successfully (Python mode)!"
+                echo ""
+                echo "Note: Python mode is recommended for your system."
+                echo "You can remove the binary: rm $filename"
+                return 0
+            fi
+        else
+            echo ""
+            echo "To run from source, install Python dependencies:"
+            echo "  git clone https://github.com/$REPO_OWNER/$REPO_NAME.git"
+            echo "  cd $REPO_NAME"
+            echo "  pip3 install -r requirements.txt"
+            echo "  python3 limiter.py"
+            return 1
+        fi
+    fi
+    
+    # Show error details
+    echo ""
+    echo "❌ Limiter failed to start!"
+    echo ""
+    if [ -f "$log_file" ] && [ -s "$log_file" ]; then
+        echo "=== Error Log ==="
+        tail -30 "$log_file"
+        echo "================="
+    fi
+    echo ""
+    echo "Common issues:"
+    echo "  - Invalid config.json (check JSON syntax)"
+    echo "  - Wrong panel domain/credentials"
+    echo "  - Invalid Telegram bot token"
+    echo "  - Panel not reachable"
+    echo ""
+    echo "Fix config with option 6, or view logs with option 4."
 }
 
 # Stop the limiter

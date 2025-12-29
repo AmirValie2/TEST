@@ -10,7 +10,9 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Use Ubuntu 22.04 for GLIBC 2.35 compatibility with older systems
+    # ubuntu-latest (24.04) has GLIBC 2.39 which breaks on Ubuntu 22.04 and older
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         architecture: [x86_64, aarch64]
