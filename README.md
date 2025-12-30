@@ -97,7 +97,7 @@ pg-limiter uninstall  # Remove PG-Limiter
 
 ```bash
 # Clone repository
-git clone https://github.com/MatinDehghanian/PG-Limiter.git
+git clone https://github.com/amirvalie2/test.git
 cd PG-Limiter
 
 # Install dependencies

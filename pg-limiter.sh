@@ -2,7 +2,7 @@
 set -e
 
 # PG-Limiter Management Script
-# https://github.com/MatinDehghanian/PG-Limiter
+# https://github.com/amirvalie2/test
 
 # Configuration
 REPO_OWNER="amirvalie2"
@@ -193,7 +193,7 @@ create_compose_file() {
     cat > "$COMPOSE_FILE" <<'EOF'
 services:
   pg-limiter:
-    image: ghcr.io/matindehghanian/pg-limiter:latest
+    image: ghcr.io/amirvalie2/test:latest
     container_name: pg-limiter
     restart: always
     env_file: .env
