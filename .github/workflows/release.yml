@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        architecture: [x86_64, aarch64]
+        architecture: [x86_64]
     
     steps:
     - uses: actions/checkout@v4
@@ -43,19 +43,6 @@ jobs:
         pyinstaller limiter.spec
         mv dist/limiter dist/limiter_amd64
     
-    - name: Build binary for aarch64 (ARM64)
-      if: matrix.architecture == 'aarch64'
-      run: |
-        # Use Docker for cross-compilation
-        docker run --rm --platform linux/arm64 -v $PWD:/workspace -w /workspace python:3.11-slim bash -c "
-          apt-get update && apt-get install -y gcc &&
-          pip install --upgrade pip &&
-          pip install -r requirements.txt &&
-          pip install pyinstaller &&
-          pyinstaller limiter.spec &&
-          mv dist/limiter dist/limiter_arm64
-        "
-    
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
@@ -80,7 +67,6 @@ jobs:
       run: |
         mkdir -p release
         cp artifacts/limiter-x86_64/limiter_amd64 release/
-        cp artifacts/limiter-aarch64/limiter_arm64 release/
         # Create a symlink for the default limiter.bin (x86_64)
         ln -sf limiter_amd64 release/limiter.bin
         chmod +x release/*
@@ -106,7 +92,6 @@ jobs:
           
           ### Download Instructions:
           - **For x86_64 (AMD64) systems**: Download `limiter_amd64` or `limiter.bin`
-          - **For ARM64 (aarch64) systems**: Download `limiter_arm64`
           
           ### Changes in this release:
           - Auto-generated release from commit ${{ github.sha }}
@@ -114,11 +99,10 @@ jobs:
           ### Installation:
           1. Download the appropriate binary for your architecture
           2. Make it executable: `chmod +x limiter_*`
-          3. Run it: `./limiter_amd64` or `./limiter_arm64`
+          3. Run it: `./limiter_amd64`
         files: |
           release/limiter.bin
           release/limiter_amd64
-          release/limiter_arm64
         draft: false
         prerelease: false
       env:
