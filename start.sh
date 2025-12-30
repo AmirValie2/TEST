@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION="0.4.2"
+VERSION="0.4.3"
 
 echo "╔═══════════════════════════════════════════════════════════════╗"
 echo "║              PG-Limiter v$VERSION Starting...                   ║"
