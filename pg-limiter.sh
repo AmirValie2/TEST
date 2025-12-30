@@ -5,12 +5,12 @@ set -e
 # https://github.com/MatinDehghanian/PG-Limiter
 
 # Configuration
-REPO_OWNER="MatinDehghanian"
-REPO_NAME="PG-Limiter"
+REPO_OWNER="AmirValie2"
+REPO_NAME="TEST"
 SERVICE_NAME="pg-limiter"
 CONFIG_DIR="/etc/opt/pg-limiter"
 DATA_DIR="/var/lib/pg-limiter"
-DOCKER_IMAGE="ghcr.io/matindehghanian/pg-limiter:latest"
+DOCKER_IMAGE="ghcr.io/AmirValie2/test:latest"
 COMPOSE_FILE="$CONFIG_DIR/docker-compose.yml"
 ENV_FILE="$CONFIG_DIR/.env"
 SCRIPT_URL="https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/main/pg-limiter.sh"
