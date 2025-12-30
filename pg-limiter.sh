@@ -195,7 +195,7 @@ create_compose_file() {
     cat > "$COMPOSE_FILE" <<'EOF'
 services:
   pg-limiter:
-    image: ghcr.io/matindehghanian/pg-limiter:latest
+    image: ghcr.io/amirvalie2/test:latest
     container_name: pg-limiter
     restart: always
     env_file: .env
