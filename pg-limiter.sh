@@ -4,15 +4,15 @@ set -e
 # PG-Limiter Management Script
 # https://github.com/MatinDehghanian/PG-Limiter
 
-VERSION="0.4.3"
+VERSION="0.5.0"
 
 # Configuration
-REPO_OWNER="amirvalie2"
-REPO_NAME="test"
+REPO_OWNER="MatinDehghanian"
+REPO_NAME="PG-Limiter"
 SERVICE_NAME="pg-limiter"
 CONFIG_DIR="/etc/opt/pg-limiter"
 DATA_DIR="/var/lib/pg-limiter"
-DOCKER_IMAGE="ghcr.io/amirvalie2/test:latest"
+DOCKER_IMAGE="ghcr.io/matindehghanian/pg-limiter:latest"
 COMPOSE_FILE="$CONFIG_DIR/docker-compose.yml"
 ENV_FILE="$CONFIG_DIR/.env"
 SCRIPT_URL="https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/main/pg-limiter.sh"
@@ -195,7 +195,7 @@ create_compose_file() {
     cat > "$COMPOSE_FILE" <<'EOF'
 services:
   pg-limiter:
-    image: ghcr.io/amirvalie2/test:latest
+    image: ghcr.io/matindehghanian/pg-limiter:latest
     container_name: pg-limiter
     restart: always
     env_file: .env
